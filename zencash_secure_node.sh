@@ -13,21 +13,19 @@ purpleColor='\033[0;95m'
 normalColor='\033[0m'
 
 # Set environment variables:
-read -p "Enter Host Name (a.example.com): " HOST_NAME
-if [[ $HOST_NAME == "" ]]; then
-  echo "HOST name is required!"
+read -p "Enter host address (a.example.com): " HOST_ADDRESS
+if [[ $HOST_ADDRESS == "" ]]; then
+  echo "Host address is required!"
   exit 1
 fi
 
 USER=$(whoami)
 
-echo -e $purpleColor"Host name: $HOST_NAME\nUser name: $USER\n"$normalColor
+echo -e $purpleColor"Host address: $HOST_ADDRESS\nUser name: $USER\n"$normalColor
 
 ########################################### packages ###########################################
 sudo apt-get update && sudo apt-get -y upgrade
-sudo apt -y install pwgen git ufw wget fail2ban rkhunter
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
+sudo apt -y install pwgen git ufw wget curl rkhunter
 
 ########################################### basic security ###########################################
 sudo ufw default allow outgoing
@@ -70,7 +68,7 @@ RPC_USERNAME=$(pwgen -s 16 1)
 RPC_PASSWORD=$(pwgen -s 64 1)
 
 sudo sh -c "echo '
-addnode=$HOST_NAME
+addnode=$HOST_ADDRESS
 addnode=zennodes.network
 rpcuser=$RPC_USERNAME
 rpcpassword=$RPC_PASSWORD
@@ -83,8 +81,8 @@ txindex=1
 logtimestamps=1
 onlynet=ipv4
 # ssl
-tlscertpath=/home/$USER/.acme.sh/$HOST_NAME/$HOST_NAME.cer
-tlskeypath=/home/$USER/.acme.sh/$HOST_NAME/$HOST_NAME.key
+tlscertpath=/home/$USER/.acme.sh/$HOST_ADDRESS/$HOST_ADDRESS.cer
+tlskeypath=/home/$USER/.acme.sh/$HOST_ADDRESS/$HOST_ADDRESS.key
 ### testnet config
 #testnet=1
 ' >> /home/$USER/.zen/zen.conf"
@@ -98,11 +96,11 @@ if [ ! -d /home/$USER/acme.sh ]; then
   cd /home/$USER/acme.sh && ./acme.sh --install
   sudo chown -R $USER:$USER /home/$USER/.acme.sh
 fi
-if [ ! -f /home/$USER/.acme.sh/$HOST_NAME/ca.cer ]; then
-  sudo /home/$USER/.acme.sh/acme.sh --issue --standalone -d $HOST_NAME --home /home/$USER/.acme.sh
+if [ ! -f /home/$USER/.acme.sh/$HOST_ADDRESS/ca.cer ]; then
+  sudo /home/$USER/.acme.sh/acme.sh --issue --standalone -d $HOST_ADDRESS --home /home/$USER/.acme.sh
 fi
 cd ~
-sudo cp /home/$USER/.acme.sh/$HOST_NAME/ca.cer /usr/local/share/ca-certificates/$HOST_NAME.crt
+sudo cp /home/$USER/.acme.sh/$HOST_ADDRESS/ca.cer /usr/local/share/ca-certificates/$HOST_ADDRESS.crt
 sudo update-ca-certificates
 CRONCMD_ACME="6 0 * * * \"/home/$USER/.acme.sh\"/acme.sh --cron --home \"/home/$USER/.acme.sh\" > /dev/null" && (crontab -l | grep -v -F "$CRONCMD_ACME" ; echo "$CRONCMD_ACME") | crontab -
 
@@ -145,7 +143,6 @@ fi
 #fi
 
 #Debian
-sudo apt -y install curl
 curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
 sudo apt -y install nodejs
 sudo npm install pm2 -g
@@ -158,7 +155,7 @@ echo -e $purpleColor"Secnodetracker has been installed!"$normalColor
 
 ########################################### monit ###########################################
 sudo apt install monit
-cd /home/$USER && wget -O zen_node.sh 'https://raw.githubusercontent.com/lemmos/zencash/master/znode_start.sh'
+cd /home/$USER && curl https://raw.githubusercontent.com/lemmos/zencash/master/znode_start.sh --output zen_node.sh
 sed -i -- "s/<USER>/$USER/g" /home/$USER/zen_node.sh
 chmod u+x /home/$USER/zen_node.sh
 sudo sh -c "echo '
